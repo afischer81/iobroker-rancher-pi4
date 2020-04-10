@@ -1,0 +1,10 @@
+--- setupBackup.js.orig
++++ setupBackup.js
+@@ -382,6 +382,7 @@
+     _setObjHelper(_index, _objects, callback) {
+         // Disable all adapters.
+         if (!this.dbMigration
++            && _objects[_index].id != null
+             && _objects[_index].id.match(/^system\.adapter\./)
+             && !_objects[_index].id.match(/^system\.adapter\.admin\./)
+             && !_objects[_index].id.match(/^system\.adapter\.backitup\./)) {

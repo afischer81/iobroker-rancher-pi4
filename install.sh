@@ -11,9 +11,8 @@ function do_build {
 function do_init {
     if [ ! -d /mnt/opt/iobroker ]
     then
-        sudo addgroup -g ${IOBROKER_GID} iobroker 
+        sudo addgroup -g ${IOBROKER_GID} iobroker
         sudo adduser -G iobroker -u ${IOBROKER_UID} -h /mnt/opt/iobroker -s /bin/bash iobroker
-        sudo -u iobroker mkdir /mnt/opt/iobroker/backups /mnt/opt/iobroker/iobroker-data
     fi
 }
 
@@ -34,6 +33,12 @@ function do_start {
     docker exec -d iobroker gosu iobroker node node_modules/iobroker.js-controller/controller.js
 }
 
+function do_restart {
+    do_stop
+    sleep 5
+    do_start
+}
+
 function do_backup {
     do_stop
     docker exec iobroker iobroker backup
@@ -41,24 +46,27 @@ function do_backup {
 }
 
 function do_restore {
+    backup_id=$1
+    echo "restoring backup ${backup_id:=0}"
     do_stop
-    docker exec iobroker iobroker restore 0
-    docker exec iobroker iobroker upload all
-    do_start
+    docker exec iobroker iobroker restore ${backup_id}
+    #docker exec iobroker iobroker upload all
+    #do_start
 }
 
 function do_extract_data {
-    docker exec iobroker cp -avx iobroker-data /mnt/tmp
-    sudo -u iobroker cp -a tmp/iobroker-data/* /mnt/opt/iobroker/iobroker-data
-    sudo rm -fr tmp
+    do_stop
+    docker exec iobroker tar -c -f - . | sudo -u iobroker tar -x -f - -C /mnt/opt/iobroker
+    sudo -u iobroker patch /mnt/opt/iobroker/node_modules/iobroker.js-controller/lib/setup/setupBackup.js setupBackup.js.diff
+    docker rm -f iobroker
 }
 
 function do_run {
     if [ "$1" = "first" ]
     then
         mkdir -p $PWD/tmp
-        # 1) start with a temporary mount on iobroker-data
-        docker run -d -p 8081-8082:8081-8082 -v /mnt/opt/iobroker/backups:/opt/iobroker/backups -v $PWD/tmp:/mnt/tmp --cap-add=NET_ADMIN --restart unless-stopped --name iobroker ${IMAGE}
+        # 1) start with a temporary mount
+        docker run -d -p 8081-8082:8081-8082 --name iobroker ${IMAGE}
         # 2) wait until system is fully up
         echo "WAIT until iobroker is fully initialized, until docker logs iobroker shows"
         echo "------------------------------------------------------------"
@@ -68,9 +76,9 @@ function do_run {
         echo "Starting ioBroker..."
         echo 
         echo "THEN run ./install.sh extract_data"
-        # 3) extract iobroker-data and store in local filesystem, upon next start use that as mount
+        # 3) extract iobroker and store in local filesystem, upon next start use that as mount
     else
-        docker run -d -p 8081-8082:8081-8082 -v /mnt/opt/iobroker/backups:/opt/iobroker/backups -v /mnt/opt/iobroker/iobroker-data:/opt/iobroker/iobroker-data --cap-add=NET_ADMIN --restart unless-stopped --name iobroker ${IMAGE} noinit
+        docker run -d -p 8081-8082:8081-8082 -v /mnt/opt/iobroker:/opt/iobroker --cap-add=NET_ADMIN --restart unless-stopped --name iobroker ${IMAGE} noinit
     fi
 }
 
