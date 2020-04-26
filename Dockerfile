@@ -19,8 +19,10 @@ RUN apt-get update && apt-get install -y \
     libavahi-compat-libdnssd-dev \
     libcap2-bin \
     libpam0g-dev \
+    libpcap-dev \
     libudev-dev \
     locales \
+    openssh-client \
     pkg-config \
     procps \
     python \

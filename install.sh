@@ -58,7 +58,24 @@ function do_extract_data {
     do_stop
     docker exec iobroker tar -c -f - . | sudo -u iobroker tar -x -f - -C /mnt/opt/iobroker
     sudo -u iobroker patch /mnt/opt/iobroker/node_modules/iobroker.js-controller/lib/setup/setupBackup.js setupBackup.js.diff
-    docker rm -f iobroker
+    docker exec iobroker npm install iobroker.pilight
+    # 
+    docker exec iobroker apt-get update
+    docker exec iobroker sudo apt-get install libpcap-dev
+    docker exec iobroker iobroker install amazon-dash
+    docker exec iobroker mkdir -m 700 .ssh
+    docker exec iobroker ssh-keygen -t rsa -N "" -f .ssh/id_rsa
+    docker exec iobroker chown -R iobroker:iobroker .ssh
+}
+
+function do_mqtt {
+    docker pull eclipse-mosquitto
+    # port 9001 is also used by iobroker
+    docker run -d -p 1883:1883 -p 9011:9001 --restart unless-stopped --name mosquitto eclipse-mosquitto
+}
+
+function do_shell {
+    docker exec -it iobroker /bin/bash
 }
 
 function do_run {
@@ -66,7 +83,7 @@ function do_run {
     then
         mkdir -p $PWD/tmp
         # 1) start with a temporary mount
-        docker run -d -p 8081-8082:8081-8082 --name iobroker ${IMAGE}
+        docker run -d -p 8081-8082:8081-8082 --hostname iobroker --name iobroker ${IMAGE}
         # 2) wait until system is fully up
         echo "WAIT until iobroker is fully initialized, until docker logs iobroker shows"
         echo "------------------------------------------------------------"
@@ -78,7 +95,18 @@ function do_run {
         echo "THEN run ./install.sh extract_data"
         # 3) extract iobroker and store in local filesystem, upon next start use that as mount
     else
-        docker run -d -p 8081-8082:8081-8082 -v /mnt/opt/iobroker:/opt/iobroker --cap-add=NET_ADMIN --restart unless-stopped --name iobroker ${IMAGE} noinit
+        docker run \
+            -d \
+            -v /mnt/opt/iobroker:/opt/iobroker \
+            -v /usr/local/bin:/usr/local/bin \
+            --cap-add=NET_ADMIN \
+            --hostname iobroker \
+            --name iobroker \
+            --network=host \
+            --restart unless-stopped \
+            ${IMAGE} noinit
+        #    --device=/dev/bus/usb/001/003 \
+        #    --device=/dev/ttyACM0 \
     fi
 }
 
