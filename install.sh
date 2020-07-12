@@ -97,6 +97,7 @@ function do_run {
     else
         docker run \
             -d \
+            -v /etc/resolv.conf:/etc/resolv.conf \
             -v /mnt/opt/iobroker:/opt/iobroker \
             -v /usr/local/bin:/usr/local/bin \
             --cap-add=NET_ADMIN \
